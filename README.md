@@ -1,5 +1,5 @@
 # Flow Wallet
-Extendable, Fast, Easy to use, Ergonomic Hot crypto wallet crate
+Asynchronous, Extendable, Fast, Easy to use, Ergonomic Hot crypto wallet crate
 
 ## 🚧 Warning: This is a work in progress and is not ready for production use.
 
