@@ -9,6 +9,7 @@ Extendable, Fast, Easy to use, Ergonomic Hot crypto wallet crate
 - High Level
   - [ ] Check transaction history
   - [ ] Send crypto
+  - [ ] Generating Wallet
 - Low Level
   - [ ] Key management
   - [ ] Sign transaction
