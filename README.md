@@ -13,6 +13,8 @@ High Level
 Low Level
 - [ ] Key management
 - [ ] Sign transaction
+- [ ] HSM
+- [ ] MPC
 
 **Supported Crypto**
 - [ ] TRX (TRC-20)
