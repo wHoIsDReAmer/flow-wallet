@@ -6,15 +6,14 @@ Extendable, Fast, Easy to use, Ergonomic Hot crypto wallet crate
 ### Goals
 
 **Supported Features**
-High Level
-- [ ] Check transaction history
-- [ ] Send crypto
-
-Low Level
-- [ ] Key management
-- [ ] Sign transaction
-- [ ] HSM
-- [ ] MPC
+- High Level
+  - [ ] Check transaction history
+  - [ ] Send crypto
+- Low Level
+  - [ ] Key management
+  - [ ] Sign transaction
+  - [ ] HSM
+  - [ ] MPC
 
 **Supported Crypto**
 - [ ] TRX (TRC-20)
