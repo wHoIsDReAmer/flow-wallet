@@ -1,8 +1,11 @@
-use crate::node::ext::Provider;
+use tokio::sync::broadcast;
+
+use crate::node::{Provider, Transaction};
 use std::time::Duration;
-use tokio::time::sleep;
 
 pub struct TransactionMonitor<P: Provider> {
+    pub broadcast_tx: broadcast::Sender<Vec<Transaction>>,
+
     provider: P,
     address: String,
     interval: Duration,
@@ -11,7 +14,11 @@ pub struct TransactionMonitor<P: Provider> {
 
 impl<P: Provider> TransactionMonitor<P> {
     pub fn new(provider: P, address: String, interval_secs: u64) -> Self {
+        let (tx, _) = broadcast::channel(16);
+
         Self {
+            broadcast_tx: tx,
+
             provider,
             address,
             interval: Duration::from_secs(interval_secs),
@@ -20,22 +27,20 @@ impl<P: Provider> TransactionMonitor<P> {
     }
 
     pub async fn run(&mut self) {
-        println!("Starting monitor for address: {}", self.address);
+        let mut is_first = true;
 
-        // Initial fetch to set baseline or just start from 0?
-        // If we start from 0, we might fetch old history.
-        // Let's assume we want to see *new* transactions from now on.
-        // But for the demo, seeing history is fine.
-        // Let's just loop.
+        println!("Starting monitor for address: {}", self.address);
 
         loop {
             match self.provider.get_transactions(&self.address).await {
                 Ok(txs) => {
+                    let transactions = Vec::new();
+
                     // Sort by timestamp ascending to process in order
                     let mut sorted_txs = txs;
                     sorted_txs.sort_by_key(|t| t.timestamp);
 
-                    for tx in sorted_txs {
+                    sorted_txs.iter().for_each(|tx| {
                         if tx.timestamp > self.last_checked_timestamp {
                             println!("New Incoming Transaction Detected!");
                             println!("  Hash: {}", tx.hash);
@@ -46,13 +51,24 @@ impl<P: Provider> TransactionMonitor<P> {
 
                             self.last_checked_timestamp = tx.timestamp;
                         }
+                    });
+
+                    if !is_first {
+                        continue;
+                    }
+
+                    if let Err(err) = self.broadcast_tx.send(transactions) {
+                        eprintln!("Error broadcasting transactions: {}", err);
                     }
                 }
+
                 Err(e) => {
                     eprintln!("Error fetching transactions: {}", e);
                 }
             }
-            sleep(self.interval).await;
+
+            tokio::time::sleep(self.interval).await;
+            is_first = false;
         }
     }
 }

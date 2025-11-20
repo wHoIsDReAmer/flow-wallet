@@ -1,4 +1,4 @@
-use flow_wallet::node::{ext::Provider, tron::TronProvider};
+use flow_wallet::node::{Provider, tron::TronProvider};
 
 #[tokio::main]
 async fn main() {

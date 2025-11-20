@@ -1,4 +1,4 @@
-use crate::node::{NodeError, Transaction, ext::Provider};
+use crate::node::{NodeError, Provider, Transaction};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
@@ -71,10 +71,11 @@ impl Provider for TronProvider {
             return Err(NodeError::Api(format!("Status: {}", resp.status())));
         }
 
-        let body: TronGridResponse<Trc20Transfer> = resp
-            .json()
-            .await
-            .map_err(|e| NodeError::Parse(e.to_string()))?;
+        let body: TronGridResponse<Trc20Transfer> = dbg!(
+            resp.json()
+                .await
+                .map_err(|e| NodeError::Parse(e.to_string()))?
+        );
 
         if !body.success {
             return Err(NodeError::Api(

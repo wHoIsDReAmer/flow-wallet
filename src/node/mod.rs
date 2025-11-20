@@ -1,7 +1,7 @@
 pub mod errors;
-pub mod ext;
 pub mod tron;
 
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::node::errors::NodeError;
@@ -15,4 +15,13 @@ pub struct Transaction {
     pub block_number: u64,
     pub timestamp: u64,
     pub status: String, // "SUCCESS", "FAILED"
+}
+
+#[async_trait]
+pub trait Provider: Send + Sync {
+    /// Get transactions for a specific address
+    async fn get_transactions(&self, address: &str) -> Result<Vec<Transaction>, NodeError>;
+
+    /// Get the latest block number
+    async fn get_block_number(&self) -> Result<u64, NodeError>;
 }
