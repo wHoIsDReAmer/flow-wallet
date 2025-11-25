@@ -16,7 +16,7 @@ Asynchronous, Extendable, Fast, Easy to use, Ergonomic Hot crypto wallet crate
   - [ ] Key management
   - [ ] Sign transaction
   - [ ] HSM
-  - [ ] MPC
+  - [x] MPC (W.I.P)
 
 **Supported Crypto**
 
