@@ -3,9 +3,12 @@ use bip32::XPrv;
 use bip39::Mnemonic;
 use rand::RngCore;
 use std::str::FromStr;
+use std::sync::Arc;
 use thiserror::Error;
 
 use crate::wallet::Signer;
+use crate::wallet::mpc::signer::{KeyShare, MpcSigner};
+use crate::wallet::mpc::transport::MpcTransport;
 use crate::wallet::signer::local::LocalSigner;
 
 #[derive(Debug, Error)]
@@ -72,6 +75,36 @@ impl KeySource for MnemonicKeySource {
             .map_err(|e| KeySourceError::Derivation(e.to_string()))?;
 
         Ok(Box::new(signer))
+    }
+}
+
+/// MPC-based key source.
+pub struct MpcKeySource {
+    share: KeyShare,
+    transport: Arc<dyn MpcTransport>,
+}
+
+impl MpcKeySource {
+    pub fn new(share: KeyShare, transport: Arc<dyn MpcTransport>) -> Self {
+        Self { share, transport }
+    }
+}
+
+#[async_trait]
+impl KeySource for MpcKeySource {
+    async fn derive_signer(&self, _path: &str) -> Result<Box<dyn Signer>, KeySourceError> {
+        // In a real MPC, derivation might involve communication or just using the share for that path.
+        // For this skeleton, we assume the share is already for the target key.
+        // We clone the share data for the new signer instance.
+        let signer_share = KeyShare {
+            public_key: self.share.public_key.clone(),
+            share_data: self.share.share_data.clone(),
+        };
+
+        Ok(Box::new(MpcSigner::new(
+            signer_share,
+            self.transport.clone(),
+        )))
     }
 }
 
