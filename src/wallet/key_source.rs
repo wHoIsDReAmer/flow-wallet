@@ -29,6 +29,7 @@ pub trait KeySource: Send + Sync {
 /// Local HD Wallet key source based on BIP-39 mnemonic.
 pub struct MnemonicKeySource {
     seed: [u8; 64],
+    phrase: String,
 }
 
 impl MnemonicKeySource {
@@ -37,18 +38,26 @@ impl MnemonicKeySource {
         let mnemonic = Mnemonic::from_str(phrase)
             .map_err(|e| KeySourceError::InvalidMnemonic(e.to_string()))?;
         let seed = mnemonic.to_seed(""); // TODO: Support passphrase
-        Ok(Self { seed })
+        Ok(Self {
+            seed,
+            phrase: phrase.to_string(),
+        })
     }
 
     /// Generate a new random mnemonic (12 words).
-    pub fn random() -> (Self, String) {
+    pub fn random() -> Self {
         let mut entropy = [0u8; 16]; // 128 bits = 12 words
         rand::rng().fill_bytes(&mut entropy);
 
         let mnemonic = Mnemonic::from_entropy(&entropy).expect("valid entropy");
         let phrase = mnemonic.to_string();
         let seed = mnemonic.to_seed("");
-        (Self { seed }, phrase)
+        Self { seed, phrase }
+    }
+
+    /// Get the mnemonic phrase.
+    pub fn phrase(&self) -> &str {
+        &self.phrase
     }
 }
 
@@ -73,7 +82,11 @@ mod tests {
     #[tokio::test]
     async fn test_mnemonic_derivation() {
         // Generate a random valid mnemonic
-        let (source, _) = MnemonicKeySource::random();
+        let source = MnemonicKeySource::random();
+
+        // Check retrieval
+        assert!(!source.phrase().is_empty());
+        println!("{}", source.phrase());
 
         // BIP-44 path for Bitcoin: m/44'/0'/0'/0/0
         // We'll use a simple path for testing.
