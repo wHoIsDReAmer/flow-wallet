@@ -1,6 +1,8 @@
+pub mod chain;
 pub mod signer;
 pub mod transaction;
 
+use crate::wallet::chain::{Chain, ChainError};
 use async_trait::async_trait;
 
 #[async_trait]
@@ -9,14 +11,20 @@ pub trait Signer: Send + Sync {
     fn public_key(&self) -> Vec<u8>;
 }
 
-pub struct Wallet<T: Signer> {
+pub struct Wallet<C: Chain, T: Signer> {
     pub signer: T,
-    pub chain: String,
+    pub chain: C,
 }
 
-impl<T: Signer> Wallet<T> {
-    pub fn new(signer: T, chain: String) -> Self {
+impl<C: Chain, T: Signer> Wallet<C, T> {
+    pub fn new(signer: T, chain: C) -> Self {
         Self { signer, chain }
+    }
+
+    /// Derive the on-chain address for this wallet using the chain rules.
+    pub fn address(&self) -> Result<String, ChainError> {
+        let pk = self.signer.public_key();
+        self.chain.address_from_pubkey(&pk)
     }
 }
 
@@ -25,6 +33,7 @@ mod tests {
     use k256::ecdsa::{Signature, VerifyingKey, signature::DigestVerifier};
     use sha2::{Digest, Sha256};
 
+    use crate::wallet::chain::TronMainnet;
     use crate::wallet::signer::local::LocalSigner;
     use crate::wallet::{Signer, Wallet};
 
@@ -33,7 +42,7 @@ mod tests {
         // 0x01... is a valid small scalar on secp256k1 for testing.
         let secret = [1u8; 32];
         let signer = LocalSigner::from_bytes(secret).expect("valid test key");
-        let foo_wallet = Wallet::new(signer, "FOO20".into());
+        let foo_wallet = Wallet::new(signer, TronMainnet);
 
         let message = b"foobar";
         let sig_bytes = foo_wallet.signer.sign(message).await.expect("signs");
@@ -61,5 +70,15 @@ mod tests {
         );
 
         VerifyingKey::from_sec1_bytes(&pk).expect("public key must parse");
+    }
+
+    #[tokio::test]
+    async fn test_tron_address_derivation() {
+        let secret = [1u8; 32];
+        let signer = LocalSigner::from_bytes(secret).expect("valid key");
+        let wallet = Wallet::new(signer, TronMainnet);
+
+        let addr = wallet.address().expect("address");
+        assert_eq!(addr, "TCNkawTmcQgYSU8nP8cHswT1QPjharxJr7");
     }
 }

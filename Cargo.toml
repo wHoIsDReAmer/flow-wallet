@@ -8,6 +8,8 @@ edition = "2024"
 # signing
 k256 = "0.13.4"
 sha2 = "0.10.9"
+sha3 = "0.10.8"
+bs58 = "0.5.1"
 
 # async runtime
 async-trait = "0.1.89"
