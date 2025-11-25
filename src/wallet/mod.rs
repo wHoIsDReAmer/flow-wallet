@@ -1,5 +1,6 @@
 pub mod chain;
 pub mod crypto;
+pub mod key_source;
 pub mod signer;
 pub mod transaction;
 

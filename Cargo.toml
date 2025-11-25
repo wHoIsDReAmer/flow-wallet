@@ -11,6 +11,10 @@ sha2 = "0.10.9"
 sha3 = "0.10.8"
 bs58 = "0.5.1"
 
+bip39 = "2.2.0"
+bip32 = "0.5.3"
+rand = "0.9.2"
+
 # async runtime
 async-trait = "0.1.89"
 tokio = { version = "1.48", features = ["full"] }
