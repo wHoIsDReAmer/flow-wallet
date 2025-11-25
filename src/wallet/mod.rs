@@ -1,4 +1,5 @@
 pub mod chain;
+pub mod crypto;
 pub mod signer;
 pub mod transaction;
 
@@ -33,7 +34,7 @@ mod tests {
     use k256::ecdsa::{Signature, VerifyingKey, signature::DigestVerifier};
     use sha2::{Digest, Sha256};
 
-    use crate::wallet::chain::TronMainnet;
+    use crate::wallet::chain::TRON;
     use crate::wallet::signer::local::LocalSigner;
     use crate::wallet::{Signer, Wallet};
 
@@ -42,7 +43,7 @@ mod tests {
         // 0x01... is a valid small scalar on secp256k1 for testing.
         let secret = [1u8; 32];
         let signer = LocalSigner::from_bytes(secret).expect("valid test key");
-        let foo_wallet = Wallet::new(signer, TronMainnet);
+        let foo_wallet = Wallet::new(signer, TRON);
 
         let message = b"foobar";
         let sig_bytes = foo_wallet.signer.sign(message).await.expect("signs");
@@ -76,7 +77,7 @@ mod tests {
     async fn test_tron_address_derivation() {
         let secret = [1u8; 32];
         let signer = LocalSigner::from_bytes(secret).expect("valid key");
-        let wallet = Wallet::new(signer, TronMainnet);
+        let wallet = Wallet::new(signer, TRON);
 
         let addr = wallet.address().expect("address");
         assert_eq!(addr, "TCNkawTmcQgYSU8nP8cHswT1QPjharxJr7");

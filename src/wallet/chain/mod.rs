@@ -1,8 +1,10 @@
 use thiserror::Error;
 
-pub mod tron;
+pub mod tvm;
+pub mod utxo;
 
-pub use tron::{TronMainnet, tron_address_from_pubkey};
+pub use tvm::{TRON, TvmChain, tvm_address_from_pubkey};
+pub use utxo::{LITECOIN, UtxoChain, utxo_address_from_pubkey};
 
 /// Blockchain-specific address derivation contract.
 pub trait Chain: Send + Sync {
