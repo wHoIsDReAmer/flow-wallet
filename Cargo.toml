@@ -5,6 +5,10 @@ edition = "2024"
 
 [dependencies]
 
+# signing
+k256 = "0.13.4"
+sha2 = "0.10.9"
+
 # async runtime
 async-trait = "0.1.89"
 tokio = { version = "1.48", features = ["full"] }
