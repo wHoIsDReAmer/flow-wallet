@@ -1,9 +1,10 @@
+use flow_wallet::node::utils::format_units;
 use flow_wallet::node::{Provider, network::prelude::*};
 
 #[tokio::main]
 async fn main() {
     // My temp address
-    const ADDRESS: &str = "TMT4gXGWmJccmduMw6KrcCgz5gDDSosqbB";
+    const ADDRESS: &str = "TT5iK8oqGEyRKJAnRwrLSZ4fM5y77F2LNT";
     let tron_provider = TronProvider::new();
 
     // get transactions
@@ -20,10 +21,7 @@ async fn main() {
     if let Ok(balance) = tron_provider.get_balance(ADDRESS).await {
         println!(
             "Balance: {} TRX",
-            flow_wallet::node::utils::format_units(
-                &balance,
-                flow_wallet::node::network::tron::DECIMALS
-            )
+            format_units(&balance, tron_provider.get_decimals())
         );
     }
 }

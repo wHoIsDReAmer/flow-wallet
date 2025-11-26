@@ -1,4 +1,4 @@
-use flow_wallet::node::{Provider, network::prelude::*};
+use flow_wallet::node::{Provider, network::prelude::*, utils::format_units};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -10,7 +10,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "Balance: {} LTC",
-        flow_wallet::node::utils::format_units(&balance, flow_wallet::node::network::ltc::DECIMALS)
+        format_units(&balance, provider.get_decimals())
     );
 
     Ok(())

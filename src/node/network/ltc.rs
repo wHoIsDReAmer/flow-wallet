@@ -4,7 +4,6 @@ use reqwest::Client;
 use serde::Deserialize;
 
 const BLOCKCYPHER_LTC_MAINNET: &str = "https://api.blockcypher.com/v1/ltc/main";
-pub const DECIMALS: u32 = 8;
 
 pub struct LtcProvider {
     client: Client,
@@ -56,6 +55,10 @@ struct BlockcypherChain {
 
 #[async_trait]
 impl Provider for LtcProvider {
+    fn get_decimals(&self) -> u32 {
+        8
+    }
+
     async fn get_balance(&self, address: &str) -> Result<String, NodeError> {
         // https://api.blockcypher.com/v1/ltc/main/addrs/L.../balance
         let url = format!("{}/addrs/{}/balance", self.base_url, address);

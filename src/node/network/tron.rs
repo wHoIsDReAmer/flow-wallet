@@ -4,7 +4,6 @@ use reqwest::Client;
 use serde::Deserialize;
 
 const TRON_GRID_MAINNET: &str = "https://api.trongrid.io";
-pub const DECIMALS: u32 = 6;
 
 pub struct TronProvider {
     client: Client,
@@ -53,6 +52,10 @@ struct TokenInfo {
 
 #[async_trait]
 impl Provider for TronProvider {
+    fn get_decimals(&self) -> u32 {
+        6
+    }
+
     async fn get_transactions(&self, address: &str) -> Result<Vec<Transaction>, NodeError> {
         // Fetch TRC-20 transactions
         // Docs: https://developers.tron.network/reference/get-trc20-transaction-info-by-account-address

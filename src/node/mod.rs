@@ -20,6 +20,8 @@ pub struct Transaction {
 
 #[async_trait]
 pub trait Provider: Send + Sync {
+    fn get_decimals(&self) -> u32;
+
     /// Get transactions for a specific address
     async fn get_transactions(&self, address: &str) -> Result<Vec<Transaction>, NodeError>;
 
