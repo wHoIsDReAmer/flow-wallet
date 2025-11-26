@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde::Deserialize;
 
 const TRON_GRID_MAINNET: &str = "https://api.trongrid.io";
+pub const DECIMALS: u32 = 6;
 
 pub struct TronProvider {
     client: Client,
@@ -71,11 +72,10 @@ impl Provider for TronProvider {
             return Err(NodeError::Api(format!("Status: {}", resp.status())));
         }
 
-        let body: TronGridResponse<Trc20Transfer> = dbg!(
-            resp.json()
-                .await
-                .map_err(|e| NodeError::Parse(e.to_string()))?
-        );
+        let body: TronGridResponse<Trc20Transfer> = resp
+            .json()
+            .await
+            .map_err(|e| NodeError::Parse(e.to_string()))?;
 
         if !body.success {
             return Err(NodeError::Api(
@@ -133,5 +133,45 @@ impl Provider for TronProvider {
             .map_err(|e| NodeError::Parse(e.to_string()))?;
 
         Ok(body.block_header.raw_data.number)
+    }
+
+    async fn get_balance(&self, address: &str) -> Result<String, NodeError> {
+        // Docs: https://developers.tron.network/reference/account-getaccount
+        let url = format!("{}/v1/accounts/{}", self.base_url, address);
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| NodeError::Network(e.to_string()))?;
+
+        #[derive(Deserialize)]
+        struct AccountResponse {
+            data: Vec<AccountData>,
+            success: bool,
+        }
+        #[derive(Deserialize)]
+        struct AccountData {
+            balance: Option<u64>,
+        }
+
+        let body: AccountResponse = resp
+            .json()
+            .await
+            .map_err(|e| NodeError::Parse(e.to_string()))?;
+
+        if !body.success {
+            return Err(NodeError::Api(
+                "TronGrid returned success: false".to_string(),
+            ));
+        }
+
+        if let Some(account) = body.data.first() {
+            // Balance is in Sun (1 TRX = 1,000,000 Sun)
+            Ok(account.balance.unwrap_or(0).to_string())
+        } else {
+            // Account not found usually means 0 balance on Tron
+            Ok("0".to_string())
+        }
     }
 }

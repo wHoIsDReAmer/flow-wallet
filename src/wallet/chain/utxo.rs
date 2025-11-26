@@ -1,5 +1,5 @@
+use crate::wallet::crypto::ripemd160::ripemd160;
 use k256::ecdsa::VerifyingKey;
-use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 
 use crate::wallet::chain::{Chain, ChainError};
@@ -38,7 +38,7 @@ pub fn utxo_address_from_pubkey(pubkey_sec1: &[u8], prefix: u8) -> Result<String
     let sha256_digest = Sha256::digest(pubkey_bytes);
 
     // RIPEMD-160
-    let ripemd160_digest = Ripemd160::digest(sha256_digest);
+    let ripemd160_digest = ripemd160(&sha256_digest);
 
     // Add version byte (prefix)
     let mut payload = Vec::with_capacity(21);

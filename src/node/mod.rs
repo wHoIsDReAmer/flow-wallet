@@ -1,5 +1,6 @@
 pub mod errors;
-pub mod tron;
+pub mod network;
+pub mod utils;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -24,4 +25,7 @@ pub trait Provider: Send + Sync {
 
     /// Get the latest block number
     async fn get_block_number(&self) -> Result<u64, NodeError>;
+
+    /// Get the balance of an address
+    async fn get_balance(&self, address: &str) -> Result<String, NodeError>;
 }

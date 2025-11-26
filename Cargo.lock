@@ -313,7 +313,6 @@ dependencies = [
  "k256",
  "rand",
  "reqwest",
- "ripemd",
  "serde",
  "serde_json",
  "sha2",

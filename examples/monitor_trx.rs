@@ -1,5 +1,5 @@
 use flow_wallet::monitor::TransactionMonitor;
-use flow_wallet::node::tron::TronProvider;
+use flow_wallet::node::network::prelude::*;
 
 #[tokio::main]
 async fn main() {
