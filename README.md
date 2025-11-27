@@ -10,17 +10,18 @@ Asynchronous, Extendable, Fast, Easy to use, Ergonomic Hot crypto wallet crate
 
 - High Level
   - [x] Check transaction history
-  - [ ] Send crypto
+  - [x] Send crypto
   - [x] Generating Wallet
 - Low Level
-  - [ ] Key management
+  - [x] Key management
+    - Mnemonic
   - [x] Sign transaction
   - [ ] HSM
   - [x] MPC (W.I.P)
 
 **Supported Crypto**
 
-- [x] TRX (TRC-20) (WIP)
+- [x] TRX (TRC-20)
   - Public RPC (TronGrid ETC)
 - [x] LTC
 - [ ] ETH
