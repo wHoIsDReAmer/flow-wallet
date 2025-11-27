@@ -3,33 +3,11 @@ use bip32::XPrv;
 use bip39::Mnemonic;
 use rand::RngCore;
 use std::str::FromStr;
-use std::sync::Arc;
-use thiserror::Error;
 
+use super::{KeySource, KeySourceError};
 use crate::wallet::Signer;
-use crate::wallet::mpc::signer::{KeyShare, MpcSigner};
-use crate::wallet::mpc::transport::MpcTransport;
-use crate::wallet::signer::local::LocalSigner;
-
-#[derive(Debug, Error)]
-pub enum KeySourceError {
-    #[error("invalid mnemonic: {0}")]
-    InvalidMnemonic(String),
-    #[error("derivation failed: {0}")]
-    Derivation(String),
-}
-
-/// Abstract source of keys.
-/// Can be a local mnemonic, a hardware wallet, or an MPC share.
-#[async_trait]
-pub trait KeySource: Send + Sync {
-    /// Derive a signer for a specific path.
-    /// For local mnemonics, this derives the private key.
-    /// For MPC, this might prepare a session for that path.
-    async fn derive_signer(&self, path: &str) -> Result<Box<dyn Signer>, KeySourceError>;
-}
-
 use crate::wallet::crypto::memory::SecureBuffer;
+use crate::wallet::signer::local::LocalSigner;
 
 /// Local HD Wallet key source based on BIP-39 mnemonic.
 pub struct MnemonicKeySource {
@@ -39,10 +17,10 @@ pub struct MnemonicKeySource {
 
 impl MnemonicKeySource {
     /// Create a new source from a BIP-39 mnemonic phrase.
-    pub fn new(phrase: &str) -> Result<Self, KeySourceError> {
+    pub fn new(phrase: &str, passphrase: Option<&str>) -> Result<Self, KeySourceError> {
         let mnemonic = Mnemonic::from_str(phrase)
             .map_err(|e| KeySourceError::InvalidMnemonic(e.to_string()))?;
-        let seed = mnemonic.to_seed(""); // TODO: Support passphrase
+        let seed = mnemonic.to_seed(passphrase.unwrap_or(""));
         Ok(Self {
             seed: SecureBuffer::new(seed.to_vec()),
             phrase: SecureBuffer::from(phrase),
@@ -50,13 +28,13 @@ impl MnemonicKeySource {
     }
 
     /// Generate a new random mnemonic (12 words).
-    pub fn random() -> Self {
+    pub fn random(passphrase: Option<&str>) -> Self {
         let mut entropy = [0u8; 16]; // 128 bits = 12 words
         rand::rng().fill_bytes(&mut entropy);
 
         let mnemonic = Mnemonic::from_entropy(&entropy).expect("valid entropy");
         let phrase = mnemonic.to_string();
-        let seed = mnemonic.to_seed("");
+        let seed = mnemonic.to_seed(passphrase.unwrap_or(""));
         Self {
             seed: SecureBuffer::new(seed.to_vec()),
             phrase: SecureBuffer::from(phrase),
@@ -83,36 +61,6 @@ impl KeySource for MnemonicKeySource {
     }
 }
 
-/// MPC-based key source.
-pub struct MpcKeySource {
-    share: KeyShare,
-    transport: Arc<dyn MpcTransport>,
-}
-
-impl MpcKeySource {
-    pub fn new(share: KeyShare, transport: Arc<dyn MpcTransport>) -> Self {
-        Self { share, transport }
-    }
-}
-
-#[async_trait]
-impl KeySource for MpcKeySource {
-    async fn derive_signer(&self, _path: &str) -> Result<Box<dyn Signer>, KeySourceError> {
-        // In a real MPC, derivation might involve communication or just using the share for that path.
-        // For this skeleton, we assume the share is already for the target key.
-        // We clone the share data for the new signer instance.
-        let signer_share = KeyShare {
-            public_key: self.share.public_key.clone(),
-            share_data: self.share.share_data.clone(),
-        };
-
-        Ok(Box::new(MpcSigner::new(
-            signer_share,
-            self.transport.clone(),
-        )))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,7 +68,7 @@ mod tests {
     #[tokio::test]
     async fn test_mnemonic_derivation() {
         // Generate a random valid mnemonic
-        let source = MnemonicKeySource::random();
+        let source = MnemonicKeySource::random(None);
 
         // Check retrieval
         assert!(!source.phrase().is_empty());
@@ -134,5 +82,27 @@ mod tests {
         // Check if public key matches expected
         let pk = signer.public_key();
         assert_eq!(pk.len(), 33);
+    }
+
+    #[tokio::test]
+    async fn test_passphrase_derivation() {
+        let phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+
+        // Source 1: No passphrase
+        let source1 = MnemonicKeySource::new(phrase, None).expect("valid");
+        let signer1 = source1
+            .derive_signer("m/44'/0'/0'/0/0")
+            .await
+            .expect("derive");
+
+        // Source 2: With passphrase
+        let source2 = MnemonicKeySource::new(phrase, Some("secret")).expect("valid");
+        let signer2 = source2
+            .derive_signer("m/44'/0'/0'/0/0")
+            .await
+            .expect("derive");
+
+        // Keys should be different
+        assert_ne!(signer1.public_key(), signer2.public_key());
     }
 }

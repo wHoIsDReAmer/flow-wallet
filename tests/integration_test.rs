@@ -17,7 +17,7 @@ async fn test_tron_send_coins_real() {
     };
 
     // 1. Setup Wallet
-    let key_source = MnemonicKeySource::new(&phrase).expect("valid mnemonic");
+    let key_source = MnemonicKeySource::new(&phrase, None).expect("valid mnemonic");
     let signer = key_source
         .derive_signer("m/44'/195'/0'/0/0")
         .await
@@ -57,7 +57,7 @@ async fn test_ltc_send_coins_real() {
     };
 
     // 1. Setup Wallet
-    let key_source = MnemonicKeySource::new(&phrase).expect("valid mnemonic");
+    let key_source = MnemonicKeySource::new(&phrase, None).expect("valid mnemonic");
     let signer = key_source
         .derive_signer("m/44'/1'/0'/0/0") // Testnet coin type is often 1, but LTC testnet might use 1 or same as mainnet with different prefix.
         // BIP44 for LTC is 2. Testnet is usually 1.

@@ -65,7 +65,7 @@ impl Signer for MpcSigner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wallet::mpc::transport::{MpcTransport, TransportError};
+    use crate::wallet::signer::mpc::transport::{MpcTransport, TransportError};
     use std::sync::Mutex;
 
     struct MockTransport {
