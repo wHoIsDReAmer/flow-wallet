@@ -311,6 +311,7 @@ dependencies = [
  "bip39",
  "bs58",
  "k256",
+ "libc",
  "rand",
  "reqwest",
  "serde",

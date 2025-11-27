@@ -29,10 +29,12 @@ pub trait KeySource: Send + Sync {
     async fn derive_signer(&self, path: &str) -> Result<Box<dyn Signer>, KeySourceError>;
 }
 
+use crate::wallet::crypto::memory::SecureBuffer;
+
 /// Local HD Wallet key source based on BIP-39 mnemonic.
 pub struct MnemonicKeySource {
-    seed: [u8; 64],
-    phrase: String,
+    seed: SecureBuffer,
+    phrase: SecureBuffer,
 }
 
 impl MnemonicKeySource {
@@ -42,8 +44,8 @@ impl MnemonicKeySource {
             .map_err(|e| KeySourceError::InvalidMnemonic(e.to_string()))?;
         let seed = mnemonic.to_seed(""); // TODO: Support passphrase
         Ok(Self {
-            seed,
-            phrase: phrase.to_string(),
+            seed: SecureBuffer::new(seed.to_vec()),
+            phrase: SecureBuffer::from(phrase),
         })
     }
 
@@ -55,19 +57,22 @@ impl MnemonicKeySource {
         let mnemonic = Mnemonic::from_entropy(&entropy).expect("valid entropy");
         let phrase = mnemonic.to_string();
         let seed = mnemonic.to_seed("");
-        Self { seed, phrase }
+        Self {
+            seed: SecureBuffer::new(seed.to_vec()),
+            phrase: SecureBuffer::from(phrase),
+        }
     }
 
     /// Get the mnemonic phrase.
     pub fn phrase(&self) -> &str {
-        &self.phrase
+        self.phrase.as_str().unwrap_or("")
     }
 }
 
 #[async_trait]
 impl KeySource for MnemonicKeySource {
     async fn derive_signer(&self, path: &str) -> Result<Box<dyn Signer>, KeySourceError> {
-        let xprv = XPrv::derive_from_path(self.seed, &path.parse().unwrap())
+        let xprv = XPrv::derive_from_path(&self.seed, &path.parse().unwrap())
             .map_err(|e| KeySourceError::Derivation(e.to_string()))?;
 
         let secret_key_bytes = xprv.private_key().to_bytes();

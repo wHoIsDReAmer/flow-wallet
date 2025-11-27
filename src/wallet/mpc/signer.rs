@@ -3,12 +3,13 @@ use std::sync::Arc;
 
 use super::transport::{MpcTransport, PartyId};
 use crate::wallet::Signer;
+use crate::wallet::crypto::memory::SecureBuffer;
 
 /// Placeholder for MPC key share data.
 /// In a real implementation, this would contain the mathematical share.
 pub struct KeyShare {
     pub public_key: Vec<u8>,
-    pub share_data: Vec<u8>,
+    pub share_data: SecureBuffer,
 }
 
 /// Signer that uses Multi-Party Computation to generate signatures.
@@ -87,7 +88,7 @@ mod tests {
 
         let share = KeyShare {
             public_key: vec![1, 2, 3],
-            share_data: vec![4, 5, 6],
+            share_data: SecureBuffer::new(vec![4, 5, 6]),
         };
 
         let signer = MpcSigner::new(share, transport);
