@@ -5,7 +5,7 @@ pub mod utils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::node::errors::NodeError;
+pub use crate::node::errors::NodeError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
@@ -30,4 +30,17 @@ pub trait Provider: Send + Sync {
 
     /// Get the balance of an address
     async fn get_balance(&self, address: &str) -> Result<String, NodeError>;
+
+    /// Create a raw transaction (unsigned)
+    /// Returns the raw transaction data (hex or JSON string)
+    async fn create_transaction(
+        &self,
+        from: &str,
+        to: &str,
+        amount: u64,
+    ) -> Result<String, NodeError>;
+
+    /// Broadcast a signed transaction
+    /// Returns the transaction hash
+    async fn broadcast_transaction(&self, raw_tx: &str) -> Result<String, NodeError>;
 }

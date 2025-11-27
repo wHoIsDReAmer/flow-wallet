@@ -18,6 +18,67 @@ impl Chain for UtxoChain {
     fn address_from_pubkey(&self, pubkey_sec1: &[u8]) -> Result<String, ChainError> {
         utxo_address_from_pubkey(pubkey_sec1, self.p2pkh_prefix)
     }
+
+    fn prepare_transaction(&self, raw_tx: &str) -> Result<Vec<Vec<u8>>, ChainError> {
+        let tx: serde_json::Value =
+            serde_json::from_str(raw_tx).map_err(|e| ChainError::Other(e.to_string()))?;
+
+        // Blockcypher format: "tosign" is an array of hex strings
+        let tosign = tx
+            .get("tosign")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| ChainError::Other("Missing tosign array".to_string()))?;
+
+        let mut hashes = Vec::new();
+        for item in tosign {
+            let hash_hex = item
+                .as_str()
+                .ok_or_else(|| ChainError::Other("Invalid tosign item".to_string()))?;
+            let hash_bytes = hex::decode(hash_hex)
+                .map_err(|e| ChainError::Other(format!("Invalid hex: {}", e)))?;
+            hashes.push(hash_bytes);
+        }
+
+        Ok(hashes)
+    }
+
+    fn finalize_transaction(
+        &self,
+        raw_tx: &str,
+        signatures: &[Vec<u8>],
+        pubkey: &[u8],
+    ) -> Result<String, ChainError> {
+        let mut tx: serde_json::Value =
+            serde_json::from_str(raw_tx).map_err(|e| ChainError::Other(e.to_string()))?;
+
+        let tosign_len = tx
+            .get("tosign")
+            .and_then(|v| v.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0);
+
+        if signatures.len() != tosign_len {
+            return Err(ChainError::Other(format!(
+                "Signature count mismatch: expected {}, got {}",
+                tosign_len,
+                signatures.len()
+            )));
+        }
+
+        let mut sig_hexes = Vec::new();
+        let mut pubkey_hexes = Vec::new();
+        let pk_hex = hex::encode(pubkey);
+
+        for sig in signatures {
+            sig_hexes.push(hex::encode(sig));
+            pubkey_hexes.push(pk_hex.clone());
+        }
+
+        tx["signatures"] = serde_json::json!(sig_hexes);
+        tx["pubkeys"] = serde_json::json!(pubkey_hexes);
+
+        serde_json::to_string(&tx).map_err(|e| ChainError::Other(e.to_string()))
+    }
 }
 
 /// Litecoin Mainnet configuration.

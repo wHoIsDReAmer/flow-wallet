@@ -23,6 +23,13 @@ impl LtcProvider {
             base_url: BLOCKCYPHER_LTC_MAINNET.to_string(),
         }
     }
+
+    pub fn with_url(url: String) -> Self {
+        Self {
+            client: Client::new(),
+            base_url: url,
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -36,7 +43,7 @@ struct BlockcypherTxRef {
     tx_hash: String,
     block_height: i64,
     value: i64,
-    confirmed: Option<String>,
+    _confirmed: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -140,6 +147,97 @@ impl Provider for LtcProvider {
             .map_err(|e| NodeError::Parse(e.to_string()))?;
 
         Ok(body.height)
+    }
+
+    async fn create_transaction(
+        &self,
+        from: &str,
+        to: &str,
+        amount: u64,
+    ) -> Result<String, NodeError> {
+        // https://api.blockcypher.com/v1/ltc/main/txs/new
+        let url = format!("{}/txs/new", self.base_url);
+
+        #[derive(serde::Serialize)]
+        struct CreateTxReq {
+            inputs: Vec<Input>,
+            outputs: Vec<Output>,
+        }
+        #[derive(serde::Serialize)]
+        struct Input {
+            addresses: Vec<String>,
+        }
+        #[derive(serde::Serialize)]
+        struct Output {
+            addresses: Vec<String>,
+            value: u64,
+        }
+
+        let req = CreateTxReq {
+            inputs: vec![Input {
+                addresses: vec![from.to_string()],
+            }],
+            outputs: vec![Output {
+                addresses: vec![to.to_string()],
+                value: amount,
+            }],
+        };
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&req)
+            .send()
+            .await
+            .map_err(|e| NodeError::Network(e.to_string()))?;
+
+        // Blockcypher returns a JSON object with "tosign" array.
+        // We return the whole JSON to be processed by the signer.
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| NodeError::Parse(e.to_string()))?;
+
+        if let Some(err) = body.get("error") {
+            return Err(NodeError::Api(err.to_string()));
+        }
+
+        Ok(body.to_string())
+    }
+
+    async fn broadcast_transaction(&self, raw_tx: &str) -> Result<String, NodeError> {
+        // https://api.blockcypher.com/v1/ltc/main/txs/send
+        let url = format!("{}/txs/send", self.base_url);
+
+        let tx: serde_json::Value =
+            serde_json::from_str(raw_tx).map_err(|e| NodeError::Parse(e.to_string()))?;
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&tx)
+            .send()
+            .await
+            .map_err(|e| NodeError::Network(e.to_string()))?;
+
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| NodeError::Parse(e.to_string()))?;
+
+        if let Some(err) = body.get("error") {
+            return Err(NodeError::Api(err.to_string()));
+        }
+
+        // Returns the full tx object, we want the hash
+        if let Some(tx) = body.get("tx")
+            && let Some(hash) = tx.get("hash")
+        {
+            return Ok(hash.as_str().unwrap_or("SUCCESS").to_string());
+        }
+
+        // Fallback if structure is different
+        Ok("SUCCESS".to_string())
     }
 }
 

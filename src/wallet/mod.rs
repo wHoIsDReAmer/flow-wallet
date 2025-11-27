@@ -14,6 +14,16 @@ pub trait Signer: Send + Sync {
     fn public_key(&self) -> Vec<u8>;
 }
 
+#[async_trait]
+impl Signer for Box<dyn Signer> {
+    async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, ()> {
+        (**self).sign(message).await
+    }
+    fn public_key(&self) -> Vec<u8> {
+        (**self).public_key()
+    }
+}
+
 pub struct Wallet<C: Chain, T: Signer> {
     pub signer: T,
     pub chain: C,
@@ -28,6 +38,45 @@ impl<C: Chain, T: Signer> Wallet<C, T> {
     pub fn address(&self) -> Result<String, ChainError> {
         let pk = self.signer.public_key();
         self.chain.address_from_pubkey(&pk)
+    }
+
+    /// Send coins to a destination address.
+    /// Orchestrates the flow: create (async) -> prepare (sync) -> sign (async) -> finalize (sync) -> broadcast (async).
+    pub async fn send_coins(
+        &self,
+        provider: &dyn crate::node::Provider,
+        to: &str,
+        amount: u64,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let from = self.address()?;
+
+        // 1. Create raw transaction (Async, Network)
+        let raw_tx = provider.create_transaction(&from, to, amount).await?;
+
+        // 2. Prepare transaction for signing (Sync, Chain Logic)
+        let bytes_to_sign = self.chain.prepare_transaction(&raw_tx)?;
+
+        // 3. Sign the bytes (Async, Signer/MPC)
+        let mut signatures = Vec::new();
+        for bytes in bytes_to_sign {
+            let signature = self
+                .signer
+                .sign(&bytes)
+                .await
+                .map_err(|_| "Signing failed")?;
+            signatures.push(signature);
+        }
+
+        // 4. Finalize transaction (Sync, Chain Logic)
+        let pubkey = self.signer.public_key();
+        let signed_tx = self
+            .chain
+            .finalize_transaction(&raw_tx, &signatures, &pubkey)?;
+
+        // 5. Broadcast transaction (Async, Network)
+        let tx_hash = provider.broadcast_transaction(&signed_tx).await?;
+
+        Ok(tx_hash)
     }
 }
 

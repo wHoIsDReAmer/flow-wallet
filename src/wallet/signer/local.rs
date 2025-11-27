@@ -12,7 +12,12 @@ pub struct LocalSigner {
 impl LocalSigner {
     /// Create a signer from a 32-byte secp256k1 secret scalar.
     pub fn from_bytes(secret_key: [u8; 32]) -> Result<Self, k256::ecdsa::Error> {
-        let signing_key = SigningKey::from_bytes(&secret_key.into())?;
+        Self::from_slice(&secret_key)
+    }
+
+    /// Create a signer from a secret scalar slice.
+    pub fn from_slice(secret_key: &[u8]) -> Result<Self, k256::ecdsa::Error> {
+        let signing_key = SigningKey::from_bytes(secret_key.into())?;
         Ok(Self { signing_key })
     }
 

@@ -76,7 +76,7 @@ impl KeySource for MnemonicKeySource {
             .map_err(|e| KeySourceError::Derivation(e.to_string()))?;
 
         let secret_key_bytes = xprv.private_key().to_bytes();
-        let signer = LocalSigner::from_bytes(secret_key_bytes.into())
+        let signer = LocalSigner::from_slice(&secret_key_bytes)
             .map_err(|e| KeySourceError::Derivation(e.to_string()))?;
 
         Ok(Box::new(signer))

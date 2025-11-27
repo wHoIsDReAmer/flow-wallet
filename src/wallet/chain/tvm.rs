@@ -18,6 +18,51 @@ impl Chain for TvmChain {
     fn address_from_pubkey(&self, pubkey_sec1: &[u8]) -> Result<String, ChainError> {
         tvm_address_from_pubkey(pubkey_sec1, self.address_prefix)
     }
+
+    fn prepare_transaction(&self, raw_tx: &str) -> Result<Vec<Vec<u8>>, ChainError> {
+        let tx: serde_json::Value =
+            serde_json::from_str(raw_tx).map_err(|e| ChainError::Other(e.to_string()))?;
+
+        // Extract raw_data_hex
+        let raw_data_hex = tx
+            .get("raw_data_hex")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ChainError::Other("Missing raw_data_hex".to_string()))?;
+
+        let raw_data_bytes = hex::decode(raw_data_hex)
+            .map_err(|e| ChainError::Other(format!("Invalid hex: {}", e)))?;
+
+        // Tron signs the SHA256 hash of the raw data, but most Signers expect the message to sign.
+        // We return the raw data bytes. The Signer (if ECDSA) will hash it.
+        Ok(vec![raw_data_bytes])
+    }
+
+    fn finalize_transaction(
+        &self,
+        raw_tx: &str,
+        signatures: &[Vec<u8>],
+        _pubkey: &[u8],
+    ) -> Result<String, ChainError> {
+        if signatures.is_empty() {
+            return Err(ChainError::Other("No signatures provided".to_string()));
+        }
+
+        let mut tx: serde_json::Value =
+            serde_json::from_str(raw_tx).map_err(|e| ChainError::Other(e.to_string()))?;
+
+        let signature_hex = hex::encode(&signatures[0]);
+
+        // Append to "signature" array
+        if let Some(sigs) = tx.get_mut("signature") {
+            if let Some(arr) = sigs.as_array_mut() {
+                arr.push(serde_json::Value::String(signature_hex));
+            }
+        } else {
+            tx["signature"] = serde_json::json!([signature_hex]);
+        }
+
+        serde_json::to_string(&tx).map_err(|e| ChainError::Other(e.to_string()))
+    }
 }
 
 /// Tron Mainnet configuration.

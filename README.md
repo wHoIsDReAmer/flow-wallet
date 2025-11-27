@@ -14,7 +14,7 @@ Asynchronous, Extendable, Fast, Easy to use, Ergonomic Hot crypto wallet crate
   - [x] Generating Wallet
 - Low Level
   - [ ] Key management
-  - [ ] Sign transaction
+  - [x] Sign transaction
   - [ ] HSM
   - [x] MPC (W.I.P)
 

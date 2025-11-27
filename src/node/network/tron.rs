@@ -23,6 +23,13 @@ impl TronProvider {
             base_url: TRON_GRID_MAINNET.to_string(),
         }
     }
+
+    pub fn with_url(url: String) -> Self {
+        Self {
+            client: Client::new(),
+            base_url: url,
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -34,7 +41,7 @@ struct TronGridResponse<T> {
 #[derive(Deserialize, Debug)]
 struct Trc20Transfer {
     transaction_id: String,
-    token_info: TokenInfo,
+    _token_info: TokenInfo,
     block_timestamp: u64,
     from: String,
     to: String,
@@ -44,10 +51,10 @@ struct Trc20Transfer {
 
 #[derive(Deserialize, Debug)]
 struct TokenInfo {
-    symbol: String,
-    address: String,
-    decimals: u8,
-    name: String,
+    _symbol: String,
+    _address: String,
+    _decimals: u8,
+    _name: String,
 }
 
 #[async_trait]
@@ -176,5 +183,82 @@ impl Provider for TronProvider {
             // Account not found usually means 0 balance on Tron
             Ok("0".to_string())
         }
+    }
+
+    async fn create_transaction(
+        &self,
+        from: &str,
+        to: &str,
+        amount: u64,
+    ) -> Result<String, NodeError> {
+        // https://developers.tron.network/reference/createtransaction
+        let url = format!("{}/wallet/createtransaction", self.base_url);
+
+        #[derive(serde::Serialize)]
+        struct CreateTxReq {
+            to_address: String,
+            owner_address: String,
+            amount: u64,
+        }
+
+        let req = CreateTxReq {
+            to_address: to.to_string(),
+            owner_address: from.to_string(),
+            amount,
+        };
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&req)
+            .send()
+            .await
+            .map_err(|e| NodeError::Network(e.to_string()))?;
+
+        // Tron returns the full JSON transaction object. We just return it as string.
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| NodeError::Parse(e.to_string()))?;
+
+        if let Some(err) = body.get("Error") {
+            return Err(NodeError::Api(err.to_string()));
+        }
+
+        Ok(body.to_string())
+    }
+
+    async fn broadcast_transaction(&self, raw_tx: &str) -> Result<String, NodeError> {
+        // https://developers.tron.network/reference/broadcasttransaction
+        let url = format!("{}/wallet/broadcasttransaction", self.base_url);
+
+        let tx: serde_json::Value =
+            serde_json::from_str(raw_tx).map_err(|e| NodeError::Parse(e.to_string()))?;
+
+        let resp = self
+            .client
+            .post(&url)
+            .json(&tx)
+            .send()
+            .await
+            .map_err(|e| NodeError::Network(e.to_string()))?;
+
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| NodeError::Parse(e.to_string()))?;
+
+        if let Some(result) = body.get("result")
+            && result.as_bool() == Some(true)
+        {
+            // Return txID if available, or just "SUCCESS"
+            return Ok(body
+                .get("txid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("SUCCESS")
+                .to_string());
+        }
+
+        Err(NodeError::Api(format!("Broadcast failed: {}", body)))
     }
 }
