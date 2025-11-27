@@ -1,11 +1,11 @@
-pub mod errors;
+pub mod error;
 pub mod network;
 pub mod utils;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-pub use crate::node::errors::NodeError;
+pub use crate::node::error::NodeError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {

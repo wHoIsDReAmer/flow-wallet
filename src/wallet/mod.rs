@@ -40,12 +40,14 @@ impl<C: Chain, T: Signer> Wallet<C, T> {
 
     /// Send coins to a destination address.
     /// Orchestrates the flow: create (async) -> prepare (sync) -> sign (async) -> finalize (sync) -> broadcast (async).
+    /// Send coins to a destination address.
+    /// Orchestrates the flow: create (async) -> prepare (sync) -> sign (async) -> finalize (sync) -> broadcast (async).
     pub async fn send_coins(
         &self,
         provider: &dyn crate::node::Provider,
         to: &str,
         amount: u64,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<String, crate::WalletError> {
         let from = self.address()?;
 
         // 1. Create raw transaction (Async, Network)
@@ -61,7 +63,7 @@ impl<C: Chain, T: Signer> Wallet<C, T> {
                 .signer
                 .sign(&bytes)
                 .await
-                .map_err(|_| "Signing failed")?;
+                .map_err(|_| crate::WalletError::SigningFailed)?;
             signatures.push(signature);
         }
 
