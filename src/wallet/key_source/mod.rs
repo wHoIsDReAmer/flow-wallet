@@ -5,9 +5,11 @@ use crate::wallet::Signer;
 
 pub mod mnemonic;
 pub mod mpc;
+pub mod xpub;
 
 pub use mnemonic::MnemonicKeySource;
 pub use mpc::MpcKeySource;
+pub use xpub::XPubKeySource;
 
 #[derive(Debug, Error)]
 pub enum KeySourceError {
