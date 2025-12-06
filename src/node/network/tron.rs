@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde::Deserialize;
 
 const TRON_GRID_MAINNET: &str = "https://api.trongrid.io";
+const TRON_GRID_NILE: &str = "https://nile.trongrid.io";
 
 pub struct TronProvider {
     client: Client,
@@ -24,6 +25,13 @@ impl TronProvider {
         }
     }
 
+    pub fn nile() -> Self {
+        Self {
+            client: Client::new(),
+            base_url: TRON_GRID_NILE.to_string(),
+        }
+    }
+
     pub fn with_url(url: String) -> Self {
         Self {
             client: Client::new(),
@@ -41,7 +49,7 @@ struct TronGridResponse<T> {
 #[derive(Deserialize, Debug)]
 struct Trc20Transfer {
     transaction_id: String,
-    _token_info: TokenInfo,
+    token_info: TokenInfo,
     block_timestamp: u64,
     from: String,
     to: String,
@@ -51,10 +59,10 @@ struct Trc20Transfer {
 
 #[derive(Deserialize, Debug)]
 struct TokenInfo {
-    _symbol: String,
-    _address: String,
-    _decimals: u8,
-    _name: String,
+    symbol: String,
+    address: String,
+    decimals: u8,
+    name: String,
 }
 
 #[async_trait]

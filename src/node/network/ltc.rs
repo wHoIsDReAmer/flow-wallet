@@ -4,6 +4,8 @@ use reqwest::Client;
 use serde::Deserialize;
 
 const BLOCKCYPHER_LTC_MAINNET: &str = "https://api.blockcypher.com/v1/ltc/main";
+// TODO: Add Testnet support. BlockCypher does not support LTC testnet.
+// Alternatives: Chain.so V3 (requires API key), Tatum (requires API key), local node.
 
 pub struct LtcProvider {
     client: Client,
@@ -43,7 +45,7 @@ struct BlockcypherTxRef {
     tx_hash: String,
     block_height: i64,
     value: i64,
-    _confirmed: Option<String>,
+    confirmed: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
