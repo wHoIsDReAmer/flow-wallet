@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::node::NodeError;
+use crate::rpc::NodeError;
 use crate::wallet::chain::ChainError;
 use crate::wallet::key_source::KeySourceError;
 

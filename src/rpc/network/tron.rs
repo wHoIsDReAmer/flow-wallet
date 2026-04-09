@@ -1,4 +1,4 @@
-use crate::node::{NodeError, Provider, Transaction};
+use crate::rpc::{NodeError, Provider, Transaction};
 use crate::wallet::crypto::hash::double_sha256;
 use async_trait::async_trait;
 use reqwest::Client;

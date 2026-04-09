@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bip32::XPrv;
 use bip39::Mnemonic;
-use rand::RngCore;
+use rand::Rng;
 use std::str::FromStr;
 
 use super::{KeySource, KeySourceError};

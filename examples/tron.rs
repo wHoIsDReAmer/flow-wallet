@@ -1,5 +1,5 @@
-use flow_wallet::node::utils::format_units;
-use flow_wallet::node::{Provider, network::prelude::*};
+use flow_wallet::rpc::utils::format_units;
+use flow_wallet::rpc::{Provider, network::prelude::*};
 
 #[tokio::main]
 async fn main() {

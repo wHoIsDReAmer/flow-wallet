@@ -1,6 +1,6 @@
-use flow_wallet::node::Provider;
-use flow_wallet::node::network::ltc::LtcProvider;
-use flow_wallet::node::network::tron::TronProvider;
+use flow_wallet::rpc::Provider;
+use flow_wallet::rpc::network::ltc::LtcProvider;
+use flow_wallet::rpc::network::tron::TronProvider;
 use flow_wallet::wallet::Wallet;
 use flow_wallet::wallet::chain::{TRON, UtxoChain};
 use flow_wallet::wallet::key_source::{KeySource, MnemonicKeySource};

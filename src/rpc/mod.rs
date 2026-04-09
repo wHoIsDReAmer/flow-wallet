@@ -5,7 +5,7 @@ pub mod utils;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-pub use crate::node::error::NodeError;
+pub use crate::rpc::error::NodeError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {

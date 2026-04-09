@@ -1,4 +1,4 @@
-use flow_wallet::node::{Provider, network::prelude::*, utils::format_units};
+use flow_wallet::rpc::{Provider, network::prelude::*, utils::format_units};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

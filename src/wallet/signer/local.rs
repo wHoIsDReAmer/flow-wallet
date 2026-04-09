@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use k256::ecdsa::{Signature, SigningKey, VerifyingKey, signature::DigestSigner};
+use k256::ecdsa::{Signature, SigningKey, VerifyingKey, signature::hazmat::PrehashSigner};
 use sha2::{Digest, Sha256};
 
 use crate::wallet::Signer;
@@ -31,8 +31,8 @@ impl LocalSigner {
 impl Signer for LocalSigner {
     async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, ()> {
         // Hash the message to 32 bytes; required size for secp256k1 signing.
-        let digest = Sha256::new().chain_update(message);
-        let signature: Signature = self.signing_key.sign_digest(digest);
+        let hash = Sha256::digest(message);
+        let signature: Signature = self.signing_key.sign_prehash(&hash).map_err(|_| ())?;
         Ok(signature.to_der().as_bytes().to_vec())
     }
 
