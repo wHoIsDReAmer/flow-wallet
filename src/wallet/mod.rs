@@ -8,14 +8,23 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait Signer: Send + Sync {
-    async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, ()>;
+    /// Sign a 32-byte prehash `digest` and return a canonical, chain-neutral
+    /// recoverable signature: `r(32) || s(32) || v(1)`, where `v` is the raw
+    /// secp256k1 recovery id (0/1) and `s` is low-S normalized.
+    ///
+    /// Hashing the transaction payload into a digest is the responsibility of
+    /// [`Chain::prepare_transaction`], not the signer — this keeps signers chain
+    /// agnostic (Tron hashes with SHA256, UTXO uses the prehash from the node,
+    /// Ethereum would use keccak256). Each [`Chain`] then re-encodes the result as
+    /// needed (Tron uses it verbatim; UTXO drops `v` and converts r||s to DER).
+    async fn sign(&self, digest: &[u8]) -> Result<Vec<u8>, ()>;
     fn public_key(&self) -> Vec<u8>;
 }
 
 #[async_trait]
 impl Signer for Box<dyn Signer> {
-    async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, ()> {
-        (**self).sign(message).await
+    async fn sign(&self, digest: &[u8]) -> Result<Vec<u8>, ()> {
+        (**self).sign(digest).await
     }
     fn public_key(&self) -> Vec<u8> {
         (**self).public_key()
@@ -40,8 +49,6 @@ impl<C: Chain, T: Signer> Wallet<C, T> {
 
     /// Send coins to a destination address.
     /// Orchestrates the flow: create (async) -> prepare (sync) -> sign (async) -> finalize (sync) -> broadcast (async).
-    /// Send coins to a destination address.
-    /// Orchestrates the flow: create (async) -> prepare (sync) -> sign (async) -> finalize (sync) -> broadcast (async).
     pub async fn send_coins(
         &self,
         provider: &dyn crate::rpc::Provider,
@@ -53,15 +60,16 @@ impl<C: Chain, T: Signer> Wallet<C, T> {
         // 1. Create raw transaction (Async, Network)
         let raw_tx = provider.create_transaction(&from, to, amount).await?;
 
-        // 2. Prepare transaction for signing (Sync, Chain Logic)
-        let bytes_to_sign = self.chain.prepare_transaction(&raw_tx)?;
+        // 2. Prepare transaction for signing (Sync, Chain Logic).
+        // Returns the 32-byte digest(s) to sign; the chain owns the hashing rules.
+        let digests = self.chain.prepare_transaction(&raw_tx)?;
 
-        // 3. Sign the bytes (Async, Signer/MPC)
+        // 3. Sign each digest (Async, Signer/MPC)
         let mut signatures = Vec::new();
-        for bytes in bytes_to_sign {
+        for digest in digests {
             let signature = self
                 .signer
-                .sign(&bytes)
+                .sign(&digest)
                 .await
                 .map_err(|_| crate::WalletError::SigningFailed)?;
             signatures.push(signature);
@@ -82,7 +90,9 @@ impl<C: Chain, T: Signer> Wallet<C, T> {
 
 #[cfg(test)]
 mod tests {
-    use k256::ecdsa::{Signature, VerifyingKey, signature::hazmat::PrehashVerifier};
+    use k256::ecdsa::{
+        RecoveryId, Signature, VerifyingKey, signature::hazmat::PrehashVerifier,
+    };
     use sha2::{Digest, Sha256};
 
     use crate::wallet::chain::TRON;
@@ -96,17 +106,27 @@ mod tests {
         let signer = LocalSigner::from_bytes(secret).expect("valid test key");
         let foo_wallet = Wallet::new(signer, TRON);
 
-        let message = b"foobar";
-        let sig_bytes = foo_wallet.signer.sign(message).await.expect("signs");
+        // The signer signs a 32-byte prehash digest; hashing is the caller's job.
+        let digest = Sha256::digest(b"foobar");
+        let sig_bytes = foo_wallet.signer.sign(&digest).await.expect("signs");
+
+        // Canonical recoverable form: r(32) || s(32) || v(1).
+        assert_eq!(sig_bytes.len(), 65, "signature must be r||s||v (65 bytes)");
 
         // Verify signature using the public key the wallet exposes.
         let vk_bytes = foo_wallet.signer.public_key();
         let verifying_key = VerifyingKey::from_sec1_bytes(&vk_bytes).expect("valid pk");
-        let sig = Signature::from_der(&sig_bytes).expect("der sig");
-        let hash = Sha256::digest(message);
+        let sig = Signature::from_slice(&sig_bytes[..64]).expect("r||s sig");
         verifying_key
-            .verify_prehash(&hash, &sig)
+            .verify_prehash(&digest, &sig)
             .expect("signature should verify");
+
+        // The recovery id must recover the same public key — this is what makes the
+        // signature valid for Tron, which has no separate pubkey field.
+        let recovery_id = RecoveryId::from_byte(sig_bytes[64]).expect("valid recovery id");
+        let recovered = VerifyingKey::recover_from_prehash(&digest, &sig, recovery_id)
+            .expect("recover pubkey");
+        assert_eq!(recovered, verifying_key, "recovery id must match the signer");
     }
 
     #[tokio::test]

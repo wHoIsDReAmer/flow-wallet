@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use k256::ecdsa::{Signature, SigningKey, VerifyingKey, signature::hazmat::PrehashSigner};
-use sha2::{Digest, Sha256};
+use k256::ecdsa::{SigningKey, VerifyingKey};
 
 use crate::wallet::Signer;
 
@@ -29,11 +28,25 @@ impl LocalSigner {
 
 #[async_trait]
 impl Signer for LocalSigner {
-    async fn sign(&self, message: &[u8]) -> Result<Vec<u8>, ()> {
-        // Hash the message to 32 bytes; required size for secp256k1 signing.
-        let hash = Sha256::digest(message);
-        let signature: Signature = self.signing_key.sign_prehash(&hash).map_err(|_| ())?;
-        Ok(signature.to_der().as_bytes().to_vec())
+    async fn sign(&self, digest: &[u8]) -> Result<Vec<u8>, ()> {
+        // secp256k1 signs a fixed 32-byte digest. Hashing the payload is the chain's
+        // responsibility (see `Chain::prepare_transaction`), so we sign as-is and
+        // reject anything that isn't a 32-byte prehash.
+        if digest.len() != 32 {
+            return Err(());
+        }
+
+        // k256 normalizes to low-S. Return the canonical, chain-neutral form
+        // r(32) || s(32) || v(1), where `v` is the raw recovery id (0/1).
+        let (signature, recovery_id) = self
+            .signing_key
+            .sign_prehash_recoverable(digest)
+            .map_err(|_| ())?;
+
+        let mut out = Vec::with_capacity(65);
+        out.extend_from_slice(&signature.to_bytes());
+        out.push(recovery_id.to_byte());
+        Ok(out)
     }
 
     fn public_key(&self) -> Vec<u8> {

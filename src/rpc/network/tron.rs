@@ -198,9 +198,7 @@ impl Provider for TronProvider {
     }
 
     async fn get_block_number(&self) -> Result<u64, NodeError> {
-        // https://developers.tron.network/reference/get-now-block
-        // But that's wallet/getnowblock (POST).
-        // Let's use wallet/getnowblock
+        // POST wallet/getnowblock — https://developers.tron.network/reference/get-now-block
         let url = format!("{}/wallet/getnowblock", self.base_url);
         let resp = self
             .client

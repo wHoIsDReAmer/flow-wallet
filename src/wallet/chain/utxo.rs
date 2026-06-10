@@ -1,5 +1,5 @@
 use crate::wallet::crypto::ripemd160::ripemd160;
-use k256::ecdsa::VerifyingKey;
+use k256::ecdsa::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 
 use crate::wallet::chain::{Chain, ChainError};
@@ -23,23 +23,25 @@ impl Chain for UtxoChain {
         let tx: serde_json::Value =
             serde_json::from_str(raw_tx).map_err(|e| ChainError::Other(e.to_string()))?;
 
-        // Blockcypher format: "tosign" is an array of hex strings
+        // BlockCypher's "tosign" entries are the final 32-byte digests to sign
+        // (the double-SHA256 sighashes), already computed by the node. The signer
+        // signs them directly — do NOT hash again.
         let tosign = tx
             .get("tosign")
             .and_then(|v| v.as_array())
             .ok_or_else(|| ChainError::Other("Missing tosign array".to_string()))?;
 
-        let mut hashes = Vec::new();
+        let mut digests = Vec::new();
         for item in tosign {
-            let hash_hex = item
+            let digest_hex = item
                 .as_str()
                 .ok_or_else(|| ChainError::Other("Invalid tosign item".to_string()))?;
-            let hash_bytes = hex::decode(hash_hex)
+            let digest = hex::decode(digest_hex)
                 .map_err(|e| ChainError::Other(format!("Invalid hex: {}", e)))?;
-            hashes.push(hash_bytes);
+            digests.push(digest);
         }
 
-        Ok(hashes)
+        Ok(digests)
     }
 
     fn finalize_transaction(
@@ -70,7 +72,13 @@ impl Chain for UtxoChain {
         let pk_hex = hex::encode(pubkey);
 
         for sig in signatures {
-            sig_hexes.push(hex::encode(sig));
+            // The signer emits the canonical `r(32) || s(32) || v(1)` form.
+            let raw = sig
+                .get(..64)
+                .ok_or_else(|| ChainError::Other("signature too short".to_string()))?;
+            let parsed = Signature::from_slice(raw)
+                .map_err(|e| ChainError::Other(format!("invalid signature: {}", e)))?;
+            sig_hexes.push(hex::encode(parsed.to_der().as_bytes()));
             pubkey_hexes.push(pk_hex.clone());
         }
 
@@ -131,13 +139,8 @@ mod tests {
         let signer = LocalSigner::from_bytes(sk).expect("key");
         let pk = signer.public_key();
 
-        // Litecoin prefix 0x30
+        // Known vector for secret [1; 32] on Litecoin (prefix 0x30).
         let addr = utxo_address_from_pubkey(&pk, 0x30).expect("addr");
-        // Known vector for secret [1; 32] on Litecoin
         assert_eq!(addr, "LWKNsGErA9XxsrKVPimDAbuRXjCyyazZtc");
-        // Actually, let's use the one from previous ltc.rs if available, or just verify structure.
-        // Since I overwrote it, I'll rely on the logic being correct standard P2PKH.
-        // Re-calculating for [1; 32] -> compressed pk -> sha256 -> ripemd160 -> 0x30 -> checksum -> base58
-        // For safety in this refactor, I will trust the logic is identical to previous ltc.rs which was standard P2PKH.
     }
 }

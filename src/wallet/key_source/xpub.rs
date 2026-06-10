@@ -20,7 +20,7 @@ impl WatchOnlySigner {
 
 #[async_trait]
 impl Signer for WatchOnlySigner {
-    async fn sign(&self, _message: &[u8]) -> Result<Vec<u8>, ()> {
+    async fn sign(&self, _digest: &[u8]) -> Result<Vec<u8>, ()> {
         // Watch-only wallets cannot sign.
         Err(())
     }
@@ -48,23 +48,12 @@ impl XPubKeySource {
 #[async_trait]
 impl KeySource for XPubKeySource {
     async fn derive_signer(&self, path: &str) -> Result<Box<dyn Signer>, KeySourceError> {
-        // Parse the path. Note: XPub can only derive non-hardened children.
-        // Path should be relative to the xpub's depth if possible, or we assume the xpub is the root
-        // and we are deriving children.
-        // For simplicity, let's assume the path string is a standard BIP-32 path.
-        // However, `bip32` crate's `derive_child` works on `DerivationPath`.
-
-        // We need to handle the "m/" prefix or relative paths.
-        // If the xpub is already at "m/44'/0'/0'", then deriving "0/0" gives the first address.
-
         let derivation_path: bip32::DerivationPath = path
             .parse()
             .map_err(|e| KeySourceError::Derivation(format!("Invalid path: {}", e)))?;
 
-        // Wait, `derive_child` only takes one index. `derive_from_path` is for XPrv usually.
-        // For XPub, we need to iterate over the path components.
-        // Also, XPub cannot derive hardened indices.
-
+        // XPub derives non-hardened children only, one index at a time (no
+        // `derive_from_path`), so walk the path component-by-component.
         let mut current_xpub = self.xpub.clone();
         for child_index in derivation_path {
             current_xpub = current_xpub
@@ -82,15 +71,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_xpub_derivation() {
-        // Known vector
-        // Mnemonic: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
-        // Path: m/44'/0'/0'
-        // XPub: xpub6C5UHIn72E6z1j5p... (This is just a placeholder, need a real one)
-
-        // Let's use a real xpub generated from the mnemonic above for m/44'/0'/0'
-        // xpub6DUSaRj8C1...
-
-        // For this test, let's use a known valid xpub.
         let valid_xpub = "xpub661MyMwAqRbcFtXgS5sYJABqqG9YLmC4Q1Rdap9gSE8NqtwybGhePY2gZ29ESFjqJoCu1Rupje8YtGqsefD265TMg7usUDFdp6W1EGMcet8";
 
         let source = XPubKeySource::new(valid_xpub).expect("create source");

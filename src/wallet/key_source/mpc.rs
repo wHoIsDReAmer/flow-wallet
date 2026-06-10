@@ -22,10 +22,8 @@ impl MpcKeySource {
 #[async_trait]
 impl KeySource for MpcKeySource {
     async fn derive_signer(&self, _path: &str) -> Result<Box<dyn Signer>, KeySourceError> {
-        // TODO:
-        // In a real MPC, derivation might involve communication or just using the share for that path.
-        // For this skeleton, we assume the share is already for the target key.
-        // We clone the share data for the new signer instance.
+        // SKELETON: assumes the share already targets the requested key (no path
+        // derivation). TODO: derive per-path, which may require party communication.
         let signer_share = KeyShare {
             public_key: self.share.public_key.clone(),
             share_data: self.share.share_data.clone(),

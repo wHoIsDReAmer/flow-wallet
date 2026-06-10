@@ -1,6 +1,6 @@
 use k256::ecdsa::VerifyingKey;
 
-use crate::wallet::crypto::hash::{double_sha256, keccak256};
+use crate::wallet::crypto::hash::{double_sha256, keccak256, sha256};
 
 use super::{Chain, ChainError};
 
@@ -32,9 +32,9 @@ impl Chain for TvmChain {
         let raw_data_bytes = hex::decode(raw_data_hex)
             .map_err(|e| ChainError::Other(format!("Invalid hex: {}", e)))?;
 
-        // Tron signs the SHA256 hash of the raw data, but most Signers expect the message to sign.
-        // We return the raw data bytes. The Signer (if ECDSA) will hash it.
-        Ok(vec![raw_data_bytes])
+        // Tron signs SHA256(raw_data); this digest is also the transaction's txID.
+        let digest = sha256(&raw_data_bytes);
+        Ok(vec![digest.to_vec()])
     }
 
     fn finalize_transaction(
@@ -45,6 +45,14 @@ impl Chain for TvmChain {
     ) -> Result<String, ChainError> {
         if signatures.is_empty() {
             return Err(ChainError::Other("No signatures provided".to_string()));
+        }
+
+        // Tron expects a 65-byte recoverable signature: r(32) || s(32) || v(1),
+        if signatures[0].len() != 65 {
+            return Err(ChainError::Other(format!(
+                "expected 65-byte recoverable signature, got {} bytes",
+                signatures[0].len()
+            )));
         }
 
         let mut tx: serde_json::Value =

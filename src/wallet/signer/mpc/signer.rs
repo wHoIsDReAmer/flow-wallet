@@ -21,7 +21,7 @@ pub struct MpcSigner {
 
 impl MpcSigner {
     pub fn new(share: KeyShare, transport: Arc<dyn MpcTransport>) -> Self {
-        // In a real implementation, we would derive the party_id from the transport or config
+        // Hardcoded for the mock; a real impl derives this from transport/config.
         let party_id = 1;
         Self {
             share,
@@ -33,28 +33,14 @@ impl MpcSigner {
 
 #[async_trait]
 impl Signer for MpcSigner {
-    async fn sign(&self, _message: &[u8]) -> Result<Vec<u8>, ()> {
-        // TODO: Implement actual MPC signing protocol
-        // For now, we just sign with the local key share to simulate success in tests
-        // In reality, this would involve multiple rounds of communication via self.transport
-
-        // Simulating MPC delay
-        // tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-
-        // Placeholder: just sign with the share's private key part (which is a full key in this mock)
-        let _payload = &self.share.share_data;
-
-        // For the prototype, we can't easily sign without the full key.
-        // But KeyShare in this mock might actually hold the full key for simplicity?
-        // Let's assume KeyShare::share_data holds the private key bytes for this "Local MPC" mock.
-
-        // This is a HACK for the prototype to allow "MPC" signer to work in basic flow tests
-        // without implementing a full GG18/CMP protocol.
-        let secret_key_bytes = &self.share.share_data;
+    async fn sign(&self, digest: &[u8]) -> Result<Vec<u8>, ()> {
+        // MOCK: a real signer runs a threshold protocol (e.g. GG18/CMP) over
+        // `self.transport`. This prototype assumes `share_data` holds the full key
+        // and signs locally. TODO: replace with the actual MPC protocol.
         let signer =
-            crate::wallet::signer::local::LocalSigner::from_slice(secret_key_bytes.as_ref())
+            crate::wallet::signer::local::LocalSigner::from_slice(self.share.share_data.as_ref())
                 .map_err(|_| ())?;
-        signer.sign(_message).await
+        signer.sign(digest).await
     }
 
     fn public_key(&self) -> Vec<u8> {
@@ -108,9 +94,9 @@ mod tests {
         // Test public key retrieval
         assert_eq!(signer.public_key(), vec![1, 2, 3]);
 
-        // Test signing (skeleton)
-        let sig = signer.sign(b"test").await.expect("sign");
-        // assert_eq!(sig, vec![0xde, 0xad, 0xbe, 0xef]);
-        assert!(!sig.is_empty()); // Just check it produces something valid-ish
+        // Test signing (skeleton). The signer expects a 32-byte prehash digest.
+        let digest = [0x42u8; 32];
+        let sig = signer.sign(&digest).await.expect("sign");
+        assert_eq!(sig.len(), 65); // canonical r||s||v
     }
 }
